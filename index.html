@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>D-Day 스마트 카운트다운 & 계산기</title>
+
+  <!-- Tailwind CSS CDN 엔진 로드 (별도 CSS 빌드 및 외부 스타일시트 파일 불필요) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              cyan: '#06b6d4',
+              teal: '#14b8a6',
+              blue: '#3b82f6',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- 모든 UI 스타일을 포함하는 단일 임베디드 CSS -->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Pretendard:wght@300;400;500;600;700&display=swap');
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      background-color: #070709;
+      color: #f1f5f9;
+      min-height: 100vh;
+    }
+
+    .font-mono-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* 커스텀 스크롤바 */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-between p-4 sm:p-6 relative selection:bg-cyan-500 selection:text-black overflow-x-hidden">
+
+  <!-- 후면 네온 앰비언트 글로우 -->
+  <div class="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[520px] h-[520px] bg-cyan-500/10 rounded-full blur-[130px] pointer-events-none -z-10"></div>
+  <div class="fixed bottom-10 right-1/4 w-[420px] h-[420px] bg-blue-600/10 rounded-full blur-[140px] pointer-events-none -z-10"></div>
+
+  <!-- Header -->
+  <header class="w-full max-w-xl text-center pt-4 pb-2 sm:pt-8 sm:pb-4">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-3">
+      <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+      Real-Time Countdown
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+      D-Day 실시간 계산기
+    </h1>
+    <p class="text-xs sm:text-sm text-slate-400 mt-1.5">
+      목표 날짜와 시간을 지정하면 남은 일수와 시간을 1초 단위로 실시간 계산합니다.
+    </p>
+  </header>
+
+  <!-- Main Section -->
+  <main class="w-full max-w-xl my-4 space-y-6">
+    
+    <!-- 1. 목표 입력 폼 카드 -->
+    <div class="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-5 sm:p-7 shadow-2xl space-y-5">
+      
+      <!-- 이벤트 이름 입력 -->
+      <div>
+        <label for="event-title" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+          이벤트 / 목표 이름
+        </label>
+        <input
+          id="event-title"
+          type="text"
+          placeholder="예: 수능 시험, 프로젝트 런칭, 결혼식, 여행 출발"
+          class="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition"
+          value="목표 달성의 날"
+        />
+      </div>
+
+      <!-- 날짜 및 시간 선택 (Date & Time Picker) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label for="target-date" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+            목표 날짜 (필수)
+          </label>
+          <input
+            id="target-date"
+            type="date"
+            class="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-cyan-400 transition cursor-pointer [color-scheme:dark]"
+          />
+        </div>
+        <div>
+          <label for="target-time" class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+            목표 시간
+          </label>
+          <input
+            id="target-time"
+            type="time"
+            value="00:00"
+            class="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-sm text-white font-mono focus:outline-none focus:border-cyan-400 transition cursor-pointer [color-scheme:dark]"
+          />
+        </div>
+      </div>
+
+      <!-- 빠른 날짜 선택 프리셋 버튼 -->
+      <div>
+        <span class="block text-xs text-slate-400 font-medium mb-2">빠른 날짜 지정:</span>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" onclick="setQuickDate(7)" class="text-xs px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition active:scale-95">
+            +7일 후
+          </button>
+          <button type="button" onclick="setQuickDate(30)" class="text-xs px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition active:scale-95">
+            +30일 후
+          </button>
+          <button type="button" onclick="setQuickDate(100)" class="text-xs px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition active:scale-95">
+            +100일 후
+          </button>
+          <button type="button" onclick="setNewYearDate()" class="text-xs px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-cyan-400 border border-cyan-500/30 transition active:scale-95">
+            다음 새해 첫날
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 2. 실시간 카운트다운 표시 카드 -->
+    <div class="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl relative group overflow-hidden">
+      <div class="absolute inset-0 bg-cyan-500/5 rounded-3xl blur-2xl pointer-events-none group-hover:bg-cyan-500/10 transition-all"></div>
+
+      <!-- 상단 목표명 및 D-Day 뱃지 -->
+      <div class="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-5 border-b border-white/10">
+        <div>
+          <span class="text-xs font-mono uppercase tracking-widest text-slate-400 block mb-0.5">TARGET EVENT</span>
+          <h2 id="display-event-title" class="text-lg sm:text-xl font-bold text-white tracking-tight break-all">
+            목표 달성의 날
+          </h2>
+        </div>
+        <div id="dday-badge" class="self-start sm:self-auto px-4 py-1.5 rounded-full font-mono text-base sm:text-lg font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shadow-sm">
+          D-00
+        </div>
+      </div>
+
+      <!-- 4분할 카운트다운 숫자 디스플레이 -->
+      <div class="relative z-10 grid grid-cols-4 gap-2 sm:gap-4 my-6">
+        <!-- 일 -->
+        <div class="bg-black/40 border border-white/10 rounded-2xl p-3 sm:p-4 text-center">
+          <div id="count-days" class="text-2xl sm:text-4xl font-light font-mono-num text-white leading-none">0</div>
+          <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mt-2 block">일 (Days)</span>
+        </div>
+        <!-- 시간 -->
+        <div class="bg-black/40 border border-white/10 rounded-2xl p-3 sm:p-4 text-center">
+          <div id="count-hours" class="text-2xl sm:text-4xl font-light font-mono-num text-cyan-400 leading-none">00</div>
+          <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mt-2 block">시간</span>
+        </div>
+        <!-- 분 -->
+        <div class="bg-black/40 border border-white/10 rounded-2xl p-3 sm:p-4 text-center">
+          <div id="count-minutes" class="text-2xl sm:text-4xl font-light font-mono-num text-cyan-400 leading-none">00</div>
+          <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mt-2 block">분</span>
+        </div>
+        <!-- 초 -->
+        <div class="bg-black/40 border border-white/10 rounded-2xl p-3 sm:p-4 text-center">
+          <div id="count-seconds" class="text-2xl sm:text-4xl font-light font-mono-num text-cyan-400 leading-none">00</div>
+          <span class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold mt-2 block">초</span>
+        </div>
+      </div>
+
+      <!-- 상세 문장 안내 -->
+      <div class="relative z-10 text-center py-2">
+        <p id="detailed-status" class="text-xs sm:text-sm text-slate-300 font-medium font-mono-num">
+          계산 중...
+        </p>
+      </div>
+
+      <!-- 부가 편의 기능: 복사 & 초기화 -->
+      <div class="relative z-10 flex items-center gap-3 pt-5 mt-2 border-t border-white/10">
+        <button
+          type="button"
+          id="btn-copy"
+          onclick="copyResult()"
+          class="flex-1 py-3 px-4 rounded-2xl bg-white text-black hover:bg-slate-200 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition active:scale-95 shadow-lg shadow-white/10"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          <span id="copy-label">결과 텍스트 복사</span>
+        </button>
+
+        <button
+          type="button"
+          onclick="resetAll()"
+          class="py-3 px-4 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition active:scale-95"
+          title="처음 상태로 초기화"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <span>초기화</span>
+        </button>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="text-center text-xs text-slate-500 py-4">
+    단일 파일 D-Day 계산기 &bull; GitHub Pages 배포용 완전 독립형 웹 앱
+  </footer>
+
+  <!-- 모든 애플리케이션 로직을 포함하는 단일 임베디드 JS -->
+  <script>
+    const STORAGE_KEY = 'dday_app_saved_data_v1';
+    let targetDateTime = null;
+    let timerInterval = null;
+
+    // 숫자 2자리 패딩 헬퍼 함수
+    const pad = (num) => String(num).padStart(2, '0');
+
+    // 초기 날짜 세팅 (기존 로컬 저장값 또는 오늘 기준 +30일 기본값)
+    function initDefaultDate() {
+      const saved = loadStoredData();
+      if (saved && saved.targetDate) {
+        document.getElementById('event-title').value = saved.title || '목표 달성의 날';
+        document.getElementById('target-date').value = saved.targetDate;
+        document.getElementById('target-time').value = saved.targetTime || '00:00';
+      } else {
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        d.setHours(0, 0, 0, 0);
+        const yyyy = d.getFullYear();
+        const mm = pad(d.getMonth() + 1);
+        const dd = pad(d.getDate());
+        document.getElementById('target-date').value = `${yyyy}-${mm}-${dd}`;
+        document.getElementById('target-time').value = '00:00';
+      }
+      updateTargetFromInputs();
+    }
+
+    // 입력값 변경 반영 및 타임스탬프 계산
+    function updateTargetFromInputs() {
+      const dateVal = document.getElementById('target-date').value;
+      const timeVal = document.getElementById('target-time').value || '00:00';
+      const titleVal = document.getElementById('event-title').value.trim() || '목표 달성의 날';
+
+      document.getElementById('display-event-title').innerText = titleVal;
+
+      if (!dateVal) {
+        targetDateTime = null;
+        renderEmptyState();
+        return;
+      }
+
+      const [hours, minutes] = timeVal.split(':').map(Number);
+      const [year, month, day] = dateVal.split('-').map(Number);
+      targetDateTime = new Date(year, month - 1, day, hours, minutes, 0);
+
+      // 브라우저 로컬 스토리지에 자동 저장
+      saveStoredData({
+        title: titleVal,
+        targetDate: dateVal,
+        targetTime: timeVal
+      });
+
+      calculateAndRender();
+    }
+
+    // 1초 단위 실시간 카운트다운 계산 및 렌더링
+    function calculateAndRender() {
+      if (!targetDateTime || isNaN(targetDateTime.getTime())) {
+        renderEmptyState();
+        return;
+      }
+
+      const now = new Date();
+      const diffMs = targetDateTime.getTime() - now.getTime();
+      const isPast = diffMs < 0;
+      const absDiff = Math.abs(diffMs);
+
+      const totalSec = Math.floor(absDiff / 1000);
+      const days = Math.floor(totalSec / (3600 * 24));
+      const hours = Math.floor((totalSec % (3600 * 24)) / 3600);
+      const minutes = Math.floor((totalSec % 3600) / 60);
+      const seconds = totalSec % 60;
+
+      // 숫자 업데이트
+      document.getElementById('count-days').innerText = days;
+      document.getElementById('count-hours').innerText = pad(hours);
+      document.getElementById('count-minutes').innerText = pad(minutes);
+      document.getElementById('count-seconds').innerText = pad(seconds);
+
+      // D-Day 뱃지 디자인 업데이트
+      const badge = document.getElementById('dday-badge');
+      if (days === 0 && !isPast) {
+        badge.innerText = 'D-DAY (오늘)';
+        badge.className = 'self-start sm:self-auto px-4 py-1.5 rounded-full font-mono text-base sm:text-lg font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse';
+      } else if (isPast) {
+        badge.innerText = `D+${days}`;
+        badge.className = 'self-start sm:self-auto px-4 py-1.5 rounded-full font-mono text-base sm:text-lg font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30';
+      } else {
+        badge.innerText = `D-${days}`;
+        badge.className = 'self-start sm:self-auto px-4 py-1.5 rounded-full font-mono text-base sm:text-lg font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30';
+      }
+
+      // 상태 안내 문장 업데이트
+      const status = document.getElementById('detailed-status');
+      const title = document.getElementById('event-title').value.trim() || '목표일';
+      const formattedDate = targetDateTime.toLocaleDateString('ko-KR', {
+        year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'
+      });
+      const formattedTime = targetDateTime.toLocaleTimeString('ko-KR', {
+        hour: '2-digit', minute: '2-digit'
+      });
+
+      if (isPast) {
+        status.innerHTML = `<span class="text-rose-400 font-semibold">[완료]</span> ${title} (${formattedDate} ${formattedTime})로부터 <span class="text-white font-bold">${days}일 ${hours}시간 ${minutes}분 ${seconds}초</span> 지났습니다.`;
+      } else {
+        status.innerHTML = `<span class="text-cyan-400 font-semibold">[진행 중]</span> ${title} (${formattedDate} ${formattedTime})까지 <span class="text-white font-bold">${days}일 ${hours}시간 ${minutes}분 ${seconds}초</span> 남았습니다.`;
+      }
+    }
+
+    function renderEmptyState() {
+      document.getElementById('count-days').innerText = '0';
+      document.getElementById('count-hours').innerText = '00';
+      document.getElementById('count-minutes').innerText = '00';
+      document.getElementById('count-seconds').innerText = '00';
+      document.getElementById('dday-badge').innerText = 'D-??';
+      document.getElementById('detailed-status').innerText = '목표 날짜를 선택해 주세요.';
+    }
+
+    // 빠른 날짜 프리셋
+    function setQuickDate(daysAhead) {
+      const d = new Date();
+      d.setDate(d.getDate() + daysAhead);
+      const yyyy = d.getFullYear();
+      const mm = pad(d.getMonth() + 1);
+      const dd = pad(d.getDate());
+      document.getElementById('target-date').value = `${yyyy}-${mm}-${dd}`;
+      updateTargetFromInputs();
+    }
+
+    function setNewYearDate() {
+      const nextYear = new Date().getFullYear() + 1;
+      document.getElementById('target-date').value = `${nextYear}-01-01`;
+      document.getElementById('target-time').value = '00:00';
+      document.getElementById('event-title').value = `${nextYear}년 새해 첫날`;
+      updateTargetFromInputs();
+    }
+
+    // 클립보드 복사
+    function copyResult() {
+      const title = document.getElementById('display-event-title').innerText;
+      const badge = document.getElementById('dday-badge').innerText;
+      const days = document.getElementById('count-days').innerText;
+      const hours = document.getElementById('count-hours').innerText;
+      const mins = document.getElementById('count-minutes').innerText;
+      const secs = document.getElementById('count-seconds').innerText;
+      const textToCopy = `[${title}] ${badge} - 남은 시간: ${days}일 ${hours}시간 ${mins}분 ${secs}초`;
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          showCopySuccess();
+        }).catch(() => {
+          fallbackCopy(textToCopy);
+        });
+      } else {
+        fallbackCopy(textToCopy);
+      }
+    }
+
+    function showCopySuccess() {
+      const label = document.getElementById('copy-label');
+      const orig = label.innerText;
+      label.innerText = '복사되었습니다!';
+      setTimeout(() => {
+        label.innerText = orig;
+      }, 1800);
+    }
+
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showCopySuccess();
+      } catch (err) {
+        alert('클립보드 복사에 실패했습니다.');
+      }
+      document.body.removeChild(ta);
+    }
+
+    // 전체 초기화
+    function resetAll() {
+      if (confirm('모든 설정을 초기 상태로 되돌리시겠습니까?')) {
+        localStorage.removeItem(STORAGE_KEY);
+        document.getElementById('event-title').value = '목표 달성의 날';
+        initDefaultDate();
+      }
+    }
+
+    // 스토리지 헬퍼
+    function saveStoredData(data) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch (e) {}
+    }
+
+    function loadStoredData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // 이벤트 리스너 바인딩
+    document.getElementById('event-title').addEventListener('input', updateTargetFromInputs);
+    document.getElementById('target-date').addEventListener('change', updateTargetFromInputs);
+    document.getElementById('target-time').addEventListener('change', updateTargetFromInputs);
+
+    // 페이지 진입 시 실행
+    window.addEventListener('DOMContentLoaded', () => {
+      initDefaultDate();
+      timerInterval = setInterval(calculateAndRender, 1000);
+    });
+  </script>
+</body>
+</html>
